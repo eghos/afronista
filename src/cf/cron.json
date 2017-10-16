@@ -1,0 +1,158 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+
+    "Description" : "Self-healing cron instance",
+
+    "Parameters" : {
+        "EnvironmentName" : {
+            "Type" : "String",
+            "Description" : "Environment name for this stack (e.g. WIP, DEMO, LIVE, TEST)."
+        },
+
+        "ProjectName" : {
+            "Type" : "String",
+            "Description" : "Project name which is prefixed to names and tags throughout"
+        },
+
+        "RepositoryName" : {
+            "Type" : "String",
+            "Description" : "Repository name which is prefixed to names and tags throughout"
+        },
+
+        "VpcId" : {
+            "Type" : "String",
+            "Description" : "Id of the VPC to place resources in",
+            "AllowedPattern" : "vpc-[0-9a-f]{8}",
+            "ConstraintDescription" : "must be a valid vpc-XXXXXXX id"
+        },
+
+        "KeyInternal" : {
+            "Description" : "Internal key to use with the instances in the Stack",
+            "Type" : "String",
+            "MinLength": "1",
+            "MaxLength": "64",
+            "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+            "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+        },
+
+        "VpcPrivateSubnets" : {
+            "Type" : "List<AWS::EC2::Subnet::Id>",
+            "ConstraintDescription" : "must be a list of an existing subnets in the selected Virtual Private Cloud.",
+            "Description" : "SubnetIds of private subnets in your Virtual Private Cloud (VPC)"
+        },
+
+        "VpcPublicCidrA" : {
+            "Type" : "String",
+            "Description" : "Cidr of AZ A",
+            "AllowedPattern" : "[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}/[0-9]{1,2}",
+            "ConstraintDescription" : "must be a valid subnet cidr"
+        },
+
+        "VpcPublicCidrB" : {
+            "Type" : "String",
+            "Description" : "Cidr of AZ B",
+            "AllowedPattern" : "[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}/[0-9]{1,2}",
+            "ConstraintDescription" : "must be a valid subnet cidr"
+        },
+
+        "VpcPublicCidrC" : {
+            "Type" : "String",
+            "Description" : "Cidr of AZ C",
+            "AllowedPattern" : "[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}/[0-9]{1,2}",
+            "ConstraintDescription" : "must be a valid subnet cidr"
+        },
+
+        "WebInstanceRole" : {
+            "Type" : "String",
+            "Description" : "Role Id to assign to the web instances"
+        },
+
+        "CronInstanceAmi" : {
+            "Type" : "String",
+            "Description" : "Cron AMI id"
+        },
+
+        "CronInstanceType" : {
+            "Type" : "String",
+            "Description" : "Instance type for the CRON instance"
+        }
+    },
+
+    "Resources" : {
+        "CronInstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [ {
+                    "Ref": "WebInstanceRole"
+                } ]
+            }
+        },
+
+        "CronSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Enable internal HTTP access to the web instances",
+                "VpcId" : { "Ref" : "VpcId" },
+                "SecurityGroupIngress" : [
+                    { "IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : { "Ref" : "VpcPublicCidrA" } },
+                    { "IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : { "Ref" : "VpcPublicCidrB" } },
+                    { "IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : { "Ref" : "VpcPublicCidrC" } }
+                ],
+                "SecurityGroupEgress" : [
+                    { "IpProtocol" : "-1", "CidrIp" : "0.0.0.0/0"}
+                ]
+            }
+        },
+
+        "CronInstanceGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Properties" : {
+                "AvailabilityZones" : { "Fn::GetAZs" : { "Ref" : "AWS::Region" } },
+                "VPCZoneIdentifier" : { "Ref" : "VpcPrivateSubnets" },
+                "LaunchConfigurationName" : { "Ref" : "CronLaunchConfig" },
+                "MinSize" : "1",
+                "MaxSize" : "1",
+                "DesiredCapacity" : "1",
+                "Tags" : [
+                    { "Key" : "Application", "Value" : { "Ref" : "AWS::StackName"}, "PropagateAtLaunch" : "true" },
+                    { "Key" : "AccessVia", "Value" : "NAT", "PropagateAtLaunch" : "true" },
+                    { "Key" : "Name", "Value" : { "Fn::Join" : [ "_", [ { "Ref" : "EnvironmentName" }, { "Ref" : "ProjectName" }, { "Ref" : "RepositoryName" }, "CRON" ] ] }, "PropagateAtLaunch" : "true" },
+                    { "Key" : "Stack", "Value" : { "Fn::Join" : [ "_", [ { "Ref" : "EnvironmentName" }, { "Ref" : "ProjectName" }, { "Ref" : "RepositoryName" } ] ] }, "PropagateAtLaunch" : "true" },
+                    { "Key" : "Charge", "Value" : { "Fn::Join" : [ "_", [ "website", { "Ref" : "ProjectName" } ] ] }, "PropagateAtLaunch" : "true" }
+                ]
+            }
+        },
+
+        "CronLaunchConfig" : {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "Properties" : {
+                "InstanceType" : { "Ref" : "CronInstanceType" },
+                "ImageId" : { "Ref" : "CronInstanceAmi" },
+                "SecurityGroups" : [{ "Ref" : "CronSecurityGroup" }],
+                "KeyName" : { "Ref" : "KeyInternal" },
+                "IamInstanceProfile" : { "Ref" : "CronInstanceProfile" },
+                "BlockDeviceMappings" : [{
+                    "DeviceName" : "/dev/xvda",
+                    "Ebs" : {
+                        "VolumeSize" : "40",
+                        "VolumeType" : "gp2",
+                        "DeleteOnTermination" : "true"
+                    }
+                }],
+                "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+                    "#!/bin/bash -xe\n",
+                    "exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1", "\n",
+                    "/usr/local/bin/cook cron", "\n",
+                    "/usr/local/bin/cook switch", "\n",
+                    ""
+
+                ]]}}
+            }
+        }
+    },
+
+    "Outputs" : {
+    }
+
+}

@@ -1,0 +1,109 @@
+#! /bin/bash
+
+set -eu
+
+ROOT_SCRIPT_DIR=$( dirname ${BASH_SOURCE[0]} )
+CONF_DIR=$( dirname ${ROOT_SCRIPT_DIR} )/etc/dump
+LIBEXEC_DIR=$( dirname ${ROOT_SCRIPT_DIR} )/libexec
+TRANSFORMS_DIR=${CONF_DIR}/transforms
+CONF_FILE=${CONF_DIR}/${1}.conf
+
+if [ -e ${CONF_FILE} ]; then
+    . ${CONF_FILE}
+else
+    echo 'The configuration file does not exist, aborting'
+    echo 'Currently available projects:'
+    ls -1 ${CONF_DIR} | sed -e 's/^/\t- /g' -e 's/.conf//g'
+    exit 1
+fi
+
+DATE="$(date +"%Y%m%d")"
+AWS=$( which aws )
+
+BACKUP_DIR="/tmp/parallel-dumper"
+mkdir -p ${BACKUP_DIR}
+
+DUMP_DIR=${BACKUP_DIR}/${SOURCE_DB_NAME}
+rm -rf ${DUMP_DIR}
+mkdir -p ${DUMP_DIR}
+
+DUMPER=${LIBEXEC_DIR}/mydumper
+
+S3_PATH="<%= @s3_path %>"
+ENVIRONMENT=live
+
+echo -n 'Dumping database: '
+${DUMPER} \
+    --user=${SOURCE_DB_USER} \
+    --password=${SOURCE_DB_PASSWORD} \
+    --host=${SOURCE_DB_HOST} \
+    --build-empty-files \
+    --threads=1 \
+    --no-locks \
+    --triggers \
+    --long-query-guard=3600 \
+    --database=${SOURCE_DB_NAME} \
+    --outputdir=${DUMP_DIR} > /dev/null 2> /dev/null
+echo 'OK'
+
+echo -n 'Changing tables to innodb, and removing DEFINER: '
+find ${DUMP_DIR} -type f -name '*-schema*.sql' -exec sed -i -e 's#MyISAM#InnoDB#g' -e 's/DEFINER=`[^`]*`@`[^`]*` //g' {} \;
+echo 'OK'
+
+BACKUP_TYPE="full"
+S3_FULL_PATH="s3://${S3_PATH}/${BACKUP_TYPE}/${SOURCE_DB_DOMAIN}/"
+echo -n 'Purging s3 directory: '
+${AWS} s3 rm --quiet --recursive ${S3_FULL_PATH}
+echo 'OK'
+
+echo -n 'Pushing full database dump to s3: '
+${AWS} s3 sync --quiet ${DUMP_DIR}/ ${S3_FULL_PATH}
+echo 'OK'
+
+if [ "${SANITIZED_DUMP}" == "true" ]; then
+    if [ -f "${TRANSFORMS_DIR}/sanitized_tables.conf" ]; then
+        echo -n 'Removing tables for sanitized database:'
+        . ${TRANSFORMS_DIR}/sanitized_tables.conf
+        for TABLE in ${SANITIZED_TABLES}; do
+            if [ -f ${DUMP_DIR}/${SOURCE_DB_NAME}.${TABLE}.sql ]; then
+                echo > ${DUMP_DIR}/${SOURCE_DB_NAME}.${TABLE}.sql
+            fi
+        done
+        echo 'OK'
+    fi
+
+    if [ -f "${TRANSFORMS_DIR}/clear_login.conf" ]; then
+        echo -n 'Removing informations keys and passwords: '
+        . ${TRANSFORMS_DIR}/clear_login.conf
+        for i in ${CLEAR_LOGIN}; do
+            sed -i -e '/'"$( sed -e 's#/#\\/#g' <<< $i )"'/ d' ${DUMP_DIR}/${SOURCE_DB_NAME}.core_config_data.sql
+        done
+        sed -i -e '$ s/,$/;/' ${DUMP_DIR}/${SOURCE_DB_NAME}.core_config_data.sql
+        echo 'OK'
+    fi
+
+    if [ -f "${TRANSFORMS_DIR}/reset_auto_increment.conf" ]; then
+        echo -n 'Resetting AUTO_INCREMENT: '
+        . ${TRANSFORMS_DIR}/reset_auto_increment.conf
+        for TABLE in ${RESET_AUTO_INCREMENT}; do
+            if [ -f ${DUMP_DIR}/${SOURCE_DB_NAME}.${TABLE}.sql ]; then
+                echo 'ALTER TABLE `'${TABLE}'` AUTO_INCREMENT=1;' >> ${DUMP_DIR}/${SOURCE_DB_NAME}.${TABLE}.sql
+            fi
+        done
+        echo 'OK'
+    fi
+
+    BACKUP_TYPE="sanitized"
+    S3_FULL_PATH="s3://${S3_PATH}/${BACKUP_TYPE}/${SOURCE_DB_DOMAIN}/"
+
+    echo -n 'Purging sanitizied s3 directory: '
+    ${AWS} s3 rm --quiet --recursive ${S3_FULL_PATH}
+    echo 'OK'
+
+    echo -n 'Pushing sanitized database dump for '${ENVIRONMENT}' environment to S3: '
+    ${AWS} s3 sync --quiet ${DUMP_DIR}/ ${S3_FULL_PATH}
+    echo 'OK'
+fi
+echo -n 'Cleaning work directory: '
+rm -rf ${DUMP_DIR}
+echo 'OK'

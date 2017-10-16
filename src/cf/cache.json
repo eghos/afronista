@@ -1,0 +1,217 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+
+    "Description" : "Session memcache and FPC/Cache redis instances in private subnet.",
+
+    "Parameters" : {
+        "EnvironmentName" : {
+            "Type" : "String",
+            "Description" : "Environment name for this stack (e.g. WIP, DEMO, LIVE, TEST)."
+        },
+
+        "ProjectName" : {
+            "Type" : "String",
+            "Description" : "Project name which is prefixed to names and tags throughout"
+        },
+
+        "RepositoryName" : {
+            "Type" : "String",
+            "Description" : "Repository name which is prefixed to names and tags throughout"
+        },
+
+        "VpcId" : {
+            "Type" : "String",
+            "Description" : "Id of the VPC to place resources in",
+            "AllowedPattern" : "vpc-[0-9a-f]{8}",
+            "ConstraintDescription" : "must be a valid vpc-XXXXXXX id"
+        },
+
+        "VpcPrivateCidrA" : {
+            "Type" : "String",
+            "Description" : "Cidr of AZ A",
+            "AllowedPattern" : "[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}/[0-9]{1,2}",
+            "ConstraintDescription" : "must be a valid subnet cidr"
+        },
+
+        "VpcPrivateCidrB" : {
+            "Type" : "String",
+            "Description" : "Cidr of AZ B",
+            "AllowedPattern" : "[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}/[0-9]{1,2}",
+            "ConstraintDescription" : "must be a valid subnet cidr"
+        },
+
+        "VpcPrivateCidrC" : {
+            "Type" : "String",
+            "Description" : "Cidr of AZ C",
+            "AllowedPattern" : "[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}/[0-9]{1,2}",
+            "ConstraintDescription" : "must be a valid subnet cidr"
+        },
+        
+        "ApplicationDomains0CacheSessionType" : {
+            "Type" : "String",
+            "Description" : "Cache type for use as cache"
+        },
+
+        "ApplicationDomains0CacheSessionInstanceType" : {
+            "Type" : "String",
+            "Description" : "Instance type for use as cache"
+        },
+
+        "ApplicationDomains1CacheSessionType" : {
+            "Type" : "String",
+            "Description" : "Cache type for use as cache"
+        },
+
+        "ApplicationDomains1CacheSessionInstanceType" : {
+            "Type" : "String",
+            "Description" : "Instance type for use as cache"
+        },
+
+        "ApplicationDomains2CacheSessionType" : {
+            "Type" : "String",
+            "Description" : "Cache type for use as cache"
+        },
+
+        "ApplicationDomains2CacheSessionInstanceType" : {
+            "Type" : "String",
+            "Description" : "Instance type for use as cache"
+        },
+
+        "ApplicationDomains3CacheSessionType" : {
+            "Type" : "String",
+            "Description" : "Cache type for use as cache"
+        },
+
+        "ApplicationDomains3CacheSessionInstanceType" : {
+            "Type" : "String",
+            "Description" : "Instance type for use as cache"
+        },
+
+        "VpcPrivateSubnets" : {
+            "Type" : "List<AWS::EC2::Subnet::Id>",
+            "ConstraintDescription" : "must be a list of an existing subnets in the selected Virtual Private Cloud.",
+            "Description" : "SubnetIds of private subnets in your Virtual Private Cloud (VPC)"
+        }
+    },
+
+    "Resources" : {
+        "ApplicationDomains0CacheSessionCluster": {
+            "Type": "AWS::ElastiCache::CacheCluster",
+            "Properties": {
+                "CacheNodeType" : { "Ref" : "ApplicationDomains0CacheSessionInstanceType" },
+                "CacheSubnetGroupName" : { "Ref" : "CacheSubnetGroup" },
+                "Engine" : { "Ref" : "ApplicationDomains0CacheSessionType" },
+                "NumCacheNodes" : "1",
+                "Port": "6379",
+                "VpcSecurityGroupIds" : [{ "Ref" : "CacheSecurityGroup" }],
+                "Tags" : [
+                    { "Key" : "Charge", "Value" : { "Fn::Join" : [ "_", [ "website", { "Ref" : "ProjectName" } ] ] } }
+                ]
+            }
+        },
+
+        "ApplicationDomains1CacheSessionCluster": {
+            "Type": "AWS::ElastiCache::CacheCluster",
+            "Properties": {
+                "CacheNodeType" : { "Ref" : "ApplicationDomains1CacheSessionInstanceType" },
+                "CacheSubnetGroupName" : { "Ref" : "CacheSubnetGroup" },
+                "Engine" : { "Ref" : "ApplicationDomains1CacheSessionType" },
+                "NumCacheNodes" : "1",
+                "Port": "6379",
+                "VpcSecurityGroupIds" : [{ "Ref" : "CacheSecurityGroup" }],
+                "Tags" : [
+                    { "Key" : "Charge", "Value" : { "Fn::Join" : [ "_", [ "website", { "Ref" : "ProjectName" } ] ] } }
+                ]
+            }
+        },
+
+        "ApplicationDomains2CacheSessionCluster": {
+            "Type": "AWS::ElastiCache::CacheCluster",
+            "Properties": {
+                "CacheNodeType" : { "Ref" : "ApplicationDomains2CacheSessionInstanceType" },
+                "CacheSubnetGroupName" : { "Ref" : "CacheSubnetGroup" },
+                "Engine" : { "Ref" : "ApplicationDomains2CacheSessionType" },
+                "NumCacheNodes" : "1",
+                "Port": "6379",
+                "VpcSecurityGroupIds" : [{ "Ref" : "CacheSecurityGroup" }],
+                "Tags" : [
+                    { "Key" : "Charge", "Value" : { "Fn::Join" : [ "_", [ "website", { "Ref" : "ProjectName" } ] ] } }
+                ]
+            }
+        },
+
+        "ApplicationDomains2CacheSessionCluster": {
+            "Type": "AWS::ElastiCache::CacheCluster",
+            "Properties": {
+                "CacheNodeType" : { "Ref" : "ApplicationDomains2CacheSessionInstanceType" },
+                "CacheSubnetGroupName" : { "Ref" : "CacheSubnetGroup" },
+                "Engine" : { "Ref" : "ApplicationDomains2CacheSessionType" },
+                "NumCacheNodes" : "1",
+                "Port": "6379",
+                "VpcSecurityGroupIds" : [{ "Ref" : "CacheSecurityGroup" }],
+                "Tags" : [
+                    { "Key" : "Charge", "Value" : { "Fn::Join" : [ "_", [ "website", { "Ref" : "ProjectName" } ] ] } }
+                ]
+            }
+        },
+
+        "ApplicationDomains3CacheSessionCluster": {
+            "Type": "AWS::ElastiCache::CacheCluster",
+            "Properties": {
+                "CacheNodeType" : { "Ref" : "ApplicationDomains3CacheSessionInstanceType" },
+                "CacheSubnetGroupName" : { "Ref" : "CacheSubnetGroup" },
+                "Engine" : { "Ref" : "ApplicationDomains3CacheSessionType" },
+                "NumCacheNodes" : "1",
+                "Port": "6379",
+                "VpcSecurityGroupIds" : [{ "Ref" : "CacheSecurityGroup" }],
+                "Tags" : [
+                    { "Key" : "Charge", "Value" : { "Fn::Join" : [ "_", [ "website", { "Ref" : "ProjectName" } ] ] } }
+                ]
+            }
+        },
+
+        "CacheSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VpcId" },
+                "GroupDescription" : { "Fn::Join" : [ " ", [ { "Ref" : "EnvironmentName" }, { "Ref" : "ProjectName" }, { "Ref" : "RepositoryName" }, "redis", "security", "group" ] ] },
+                "SecurityGroupIngress" : [
+                    { "IpProtocol" : "tcp", "FromPort" : "6379", "ToPort" : "6379", "CidrIp" : { "Ref" : "VpcPrivateCidrA" } },
+                    { "IpProtocol" : "tcp", "FromPort" : "6379", "ToPort" : "6379", "CidrIp" : { "Ref" : "VpcPrivateCidrB" } },
+                    { "IpProtocol" : "tcp", "FromPort" : "6379", "ToPort" : "6379", "CidrIp" : { "Ref" : "VpcPrivateCidrC" } }
+                ]
+            }
+        },
+
+        "CacheSubnetGroup" : {
+            "Type" : "AWS::ElastiCache::SubnetGroup",
+            "Properties" : {
+                "Description" : { "Fn::Join" : [ " ", [ { "Ref" : "EnvironmentName" }, { "Ref" : "ProjectName" }, { "Ref" : "RepositoryName" }, "redis", "subnet", "group" ] ] },
+                "SubnetIds" : { "Ref" : "VpcPrivateSubnets" }
+            }
+        }
+    },
+
+    "Outputs" : {
+        "ApplicationDomains0CacheSessionEndpoint" : {
+            "Value" : { "Fn::Join" : [ "", [ { "Ref" : "ApplicationDomains0CacheSessionCluster" }, ".lgqihy.0001.euw1.cache.amazonaws.com" ] ] },
+            "Description" : "Endpoint of the cache 0 cluster"
+        },
+
+        "ApplicationDomains1CacheSessionEndpoint" : {
+            "Value" : { "Fn::Join" : [ "", [ { "Ref" : "ApplicationDomains1CacheSessionCluster" }, ".lgqihy.0001.euw1.cache.amazonaws.com" ] ] },
+            "Description" : "Endpoint of the cache 1 cluster"
+        },
+
+        "ApplicationDomains2CacheSessionEndpoint" : {
+            "Value" : { "Fn::Join" : [ "", [ { "Ref" : "ApplicationDomains2CacheSessionCluster" }, ".lgqihy.0001.euw1.cache.amazonaws.com" ] ] },
+            "Description" : "Endpoint of the cache 2 cluster"
+        },
+
+        "ApplicationDomains3CacheSessionEndpoint" : {
+            "Value" : { "Fn::Join" : [ "", [ { "Ref" : "ApplicationDomains3CacheSessionCluster" }, ".lgqihy.0001.euw1.cache.amazonaws.com" ] ] },
+            "Description" : "Endpoint of the cache 3 cluster"
+        }
+
+    }
+}

@@ -1,0 +1,427 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+
+    "Description" : "IAM resources: roles, policies, users, groups and keys",
+
+    "Parameters" : {
+        "EnvironmentName" : {
+            "Type" : "String",
+            "Description" : "Name of the environment repository"
+        },
+
+        "ProjectName" : {
+            "Type" : "String",
+            "Description" : "Name of the project repository"
+        },
+
+        "RepositoryName" : {
+            "Type" : "String",
+            "Description" : "Name of the project repository"
+        },
+
+        "BucketAkeneoExportName": {
+            "Type" : "String",
+            "Description" : "Name of the bucket where akeneo to magento export files are stored"
+        },
+
+        "BucketDeploymentName" : {
+            "Type" : "String",
+            "Description" : "Name of the bucket where deployments are stored"
+        },
+
+        "BucketDeploymentPath" : {
+            "Type" : "String",
+            "Description" : "Path in the bucket where deployments are stored"
+        },
+
+        "BucketMediaName" : {
+            "Type" : "String",
+            "Description" : "Name of the bucket where media is stored"
+        },
+
+        "BucketBackupsName" : {
+            "Type" : "String",
+            "Description" : "Name of the bucket where sanitized DB backups are stored"
+        },
+
+        "BucketBackupsPath" : {
+            "Type" : "String",
+            "Description" : "Path of the bucket where where sanitized DB backups are stored"
+        },
+
+        "BucketBackupsType" : {
+            "Type" : "String",
+            "Description" : "Type of backups the environment has access to"
+        },
+
+        "BucketCacheName" : {
+            "Type" : "String",
+            "Description" : "Name of the bucket where media cache is stored"
+        },
+
+        "BucketTransfersName" : {
+            "Type" : "String",
+            "Description" : "Name of the bucket where orders are stored"
+        },
+
+        "BucketTransfersPath" : {
+            "Type" : "String",
+            "Description" : "Path in the bucket where orders are stored"
+        },
+
+        "SnsTopicThumbnailcache" : {
+            "Type" : "String",
+            "Description" : "Name of the SNS topic to post to when creating thumbnails"
+        },
+
+        "SnsTopicLifecyclehook" : {
+            "Type" : "String",
+            "Description" : "Name of the SNS topic to post to when spinning instances up"
+        },
+
+        "RepositoryArn": {
+            "Type": "String",
+            "Description": "ARN of the project repository in codecommit"
+        },
+
+        "ApplicationDomains0QueueArn": {
+            "Type": "String",
+            "Description": "Queue ARN for Akeneo to Magento export"
+        },
+
+        "ContactsApiId": {
+            "Type": "String",
+            "Description": "ID of the Contacts API gateway"
+        }
+
+    },
+
+    "Mappings" : {
+    },
+
+    "Resources" : {
+        "WebInstanceRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version" : "2012-10-17",
+                    "Statement": [ {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": [ "ec2.amazonaws.com", "autoscaling.amazonaws.com" ]
+                        },
+                        "Action": [ "sts:AssumeRole" ]
+                    } ]
+                },
+                "Path": "/"
+            }
+        },
+
+        "WebPolicy" : {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName" : "WebPolicy",
+                "Roles" : [ { "Ref" : "WebInstanceRole" } ],
+                "PolicyDocument" : {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "ListAll",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:ListAllMyBuckets"
+                            ],
+                            "Resource": [
+                                "arn:aws:s3:::*"
+                            ]
+                        },
+                        {
+                            "Sid": "ReadOnAkeneoExportBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketAkeneoExportName" } ] ] },
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketAkeneoExportName" }, "/*" ] ] }
+                            ]
+                        },
+                        {
+                            "Sid": "ListOnBackupsBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:ListBucket"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketBackupsName" } ] ] }
+                            ],
+                            "Condition": {"StringLike":{"s3:prefix":[
+                                { "Fn::Join" : [ "", [
+                                    { "Ref" : "BucketBackupsPath" },
+                                    "/*"
+                                ]]}
+                            ]}}
+                        },
+                        {
+                            "Sid": "ReadWriteOnBackupsBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:HeadObject",
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [
+                                    "arn:aws:s3:::",
+                                    { "Ref" : "BucketBackupsName" },
+                                    "/",
+                                    { "Ref" : "BucketBackupsPath" },
+                                    "/",
+                                    { "Ref" : "BucketBackupsType" },
+                                    "/*"
+                                ]]}
+                            ]
+                        },
+                        {
+                            "Sid": "ReadWriteOnCacheBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects",
+                                "s3:PutObject",
+                                "s3:PutObjectAcl",
+                                "s3:DeleteObject"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketCacheName" } ] ] },
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketCacheName" }, "/*" ] ] }
+                            ]
+                        },
+                        {
+                            "Sid": "ReadOnDeploymentBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:HeadObject",
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketDeploymentName" } ] ] },
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketDeploymentName" }, "/generic/*" ] ] },
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketDeploymentName" }, "/", { "Ref" : "BucketDeploymentPath" }, "/*" ] ] }
+                            ]
+                        },
+                        {
+                            "Sid": "ReadOnMediaBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketMediaName" } ] ] },
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketMediaName" }, "/*" ] ] }
+                            ]
+                        },
+                        {
+                            "Sid": "ReadWriteOnSeasonalContentBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects",
+                                "s3:PutObject",
+                                "s3:PutObjectAcl",
+                                "s3:DeleteObject"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketMediaName" }, "/seasonalcontent" ] ] },
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketMediaName" }, "/seasonalcontent/*" ] ] }
+                            ]
+                        },
+                        {
+                            "Sid": "GetOnBackupsBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:HeadObject",
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [
+                                    "arn:aws:s3:::",
+                                    { "Ref" : "BucketBackupsName" },
+                                    "/",
+                                    { "Ref" : "BucketBackupsPath" },
+                                    "/",
+                                    { "Ref" : "RepositoryName" },
+                                    "/*"
+                                ]]}
+                            ]
+                        },
+                        {
+                            "Sid": "ReadWriteOnStaticContentBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects",
+                                "s3:PutObject",
+                                "s3:PutObjectAcl",
+                                "s3:DeleteObject"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketMediaName" }, "/content/", { "Ref" : "RepositoryName" } ] ] },
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketMediaName" }, "/content/", { "Ref" : "RepositoryName" },"/*" ] ] }
+                            ]
+                        },
+                        {
+                            "Sid": "ReadWriteOnFeedsBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects",
+                                "s3:PutObject",
+                                "s3:PutObjectAcl",
+                                "s3:DeleteObject"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketMediaName" }, "/feeds/", { "Ref" : "EnvironmentName" },"/", { "Ref" : "RepositoryName" } ] ] },
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketMediaName" }, "/feeds/", { "Ref" : "EnvironmentName" },"/", { "Ref" : "RepositoryName" },"/*" ] ] }
+                            ]
+                        },
+                        {
+                            "Sid": "ReadWriteOnSitemapBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects",
+                                "s3:PutObject",
+                                "s3:PutObjectAcl",
+                                "s3:DeleteObject"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketMediaName" }, "/sitemap/", { "Ref" : "EnvironmentName" },"/", { "Ref" : "RepositoryName" } ] ] },
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketMediaName" }, "/sitemap/", { "Ref" : "EnvironmentName" },"/", { "Ref" : "RepositoryName" },"/*" ] ] }
+                            ]
+                        },
+                        {
+                            "Sid": "ListOnTransfersBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:ListBucket"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketTransfersName" } ] ] }
+                            ],
+                            "Condition": {"StringLike":{"s3:prefix":[
+                                { "Fn::Join" : [ "", [
+                                    { "Ref" : "BucketTransfersPath" },
+                                    "/*-",
+                                    { "Ref" : "RepositoryName" },
+                                    "-*/*"
+                                ]]}
+                            ]}}
+                        },
+                        {
+                            "Sid": "ReadWriteOnTransfersBucket",
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:GetBucketAcl",
+                                "s3:GetObject",
+                                "s3:GetObjectAcl",
+                                "s3:ListBucket",
+                                "s3:ListObjects",
+                                "s3:PutObject",
+                                "s3:PutObjectAcl"
+                            ],
+                            "Resource": [
+                                { "Fn::Join" : [ "", [ "arn:aws:s3:::", { "Ref" : "BucketTransfersName" }, "/", { "Ref" : "BucketTransfersPath" }, "/*-", { "Ref" : "RepositoryName" }, "-*/*" ] ] }
+                            ]
+                        },
+                        {
+                            "Sid": "AccessToCreateThumbnails",
+                            "Effect": "Allow",
+                            "Action": [
+                                "sns:Publish"
+                            ],
+                            "Resource": [
+                                { "Ref" : "SnsTopicThumbnailcache" },
+                                { "Ref" : "SnsTopicLifecyclehook" }
+                            ]
+                        },
+                        {
+                            "Sid": "ExecuteContactsApiGateway",
+                            "Effect": "Allow",
+                            "Action": "execute-api:*",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:execute-api:", { "Ref": "AWS::Region" }, ":", { "Ref": "AWS::AccountId" }, ":", { "Ref": "ContactsApiId" }, "/*" ]
+                            ]}
+                        },
+                        {
+                            "Sid": "PullFromCodeCommit",
+                            "Effect": "Allow",
+                            "Action": [
+                                "codecommit:GitPull"
+                            ],
+                            "Resource": [
+                                { "Ref" : "RepositoryArn" }
+                            ]
+                        },
+                        {
+                            "Sid": "CompleteLifecycleAction",
+                            "Effect": "Allow",
+                            "Action": [
+                                "autoscaling:CompleteLifecycleAction"
+                            ],
+                            "Resource": [
+                                "*"
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+    },
+
+    "Outputs" : {
+        "WebInstanceRole" : {
+            "Description" : "Role for the web servers",
+            "Value" : { "Ref" : "WebInstanceRole" }
+        },
+
+        "CronInstanceRole" : {
+            "Description" : "Role for the cron servers, currently identical to web",
+            "Value" : { "Ref" : "WebInstanceRole" }
+        }
+    }
+}

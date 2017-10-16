@@ -1,0 +1,24 @@
+{
+    "role": {
+        "name": "cron"
+    },
+    "run_list": [
+        "recipe[hostsfile::aws_hostsfile]",
+        "recipe[dbutils]",
+        "recipe[dbutils::import]",
+        "recipe[php56]",
+        "recipe[php56::customize]",
+        "recipe[magento]",
+        "recipe[magento::setup]",
+        "recipe[magento::deploy]",
+        "recipe[magento::magerun]",
+        "recipe[magento::cron]",
+        "recipe[sshusers::default]",
+        "recipe[sshusers::sudoers]",
+        "recipe[splunk]",
+        "recipe[splunk::install_forwarder]",
+        "recipe[newrelic]",
+        "recipe[newrelic::server_monitoring]",
+        "recipe[newrelic::php_agent]"
+    ]
+}

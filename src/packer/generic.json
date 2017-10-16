@@ -1,0 +1,74 @@
+{
+    "variables" : {
+        "PackerKeyAccess" : "",
+        "PackerKeySecret" : "",
+        "ServerRole" : "",
+        "PackerInstanceSubnetId" : "",
+        "PackerInstanceSecurityGroupId" : "",
+        "PackerInstanceProfile" : "",
+        "EnvironmentName" : "",
+        "ProjectName" : "",
+        "RepositoryName" : "",
+        "RepositoryUrlHttps" : "",
+        "RepositoryUrlSsh" : "",
+        "BucketDeploymentName" : "",
+        "BucketDeploymentPath" : "",
+        "AmiName" : "",
+		"SourceAmi" : ""
+    },
+    "builders" : [{
+        "type" : "amazon-ebs",
+        "access_key" : "{{user `PackerKeyAccess`}}",
+        "secret_key" : "{{user `PackerKeySecret`}}",
+        "region" : "eu-west-1",
+        "source_ami" : "{{user `SourceAmi`}}",
+        "instance_type" : "t2.micro",
+        "ssh_username" : "ec2-user",
+        "iam_instance_profile" : "{{user `PackerInstanceProfile`}}",
+        "ami_name" : "{{user `AmiName`}}",
+        "subnet_id" : "{{user `PackerInstanceSubnetId`}}",
+        "security_group_id" : "{{user `PackerInstanceSecurityGroupId`}}",
+        "associate_public_ip_address" : "true",
+        "ssh_pty" : "true"
+    }],
+    "provisioners" : [
+        {
+            "type" : "shell",
+            "execute_command" : "sudo -E sh '{{ .Path }}'",
+            "inline" : [
+                "yum update -y"
+            ]
+        },
+        {
+            "type": "file",
+            "source": "src/packer/cook",
+            "destination": "/tmp/cook"
+        },
+        {
+            "type" : "shell",
+            "execute_command" : "sudo -E sh '{{ .Path }}'",
+            "inline" : [
+                "mv /tmp/cook /usr/local/bin/cook",
+                "chmod +x /usr/local/bin/cook"
+            ]
+        },
+        {
+            "type" : "shell",
+            "execute_command" : "sudo -E sh '{{ .Path }}'",
+            "inline" : [
+                "curl -L https://www.opscode.com/chef/install.sh | bash -s -- -v 12.19.36",
+                "chef-solo -v",
+
+                "mkdir ~/.chef",
+                "echo \"cookbook_path [ '/opt/chef-repo/cookbooks' ]\" > ~/.chef/knife.rb"
+            ]
+        },
+        {
+            "type" : "shell",
+            "execute_command" : "sudo -E sh '{{ .Path }}'",
+            "inline" : [
+                "/usr/local/bin/cook {{user `ServerRole`}}"
+            ]
+        }
+    ]
+}

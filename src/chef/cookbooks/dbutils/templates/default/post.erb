@@ -1,0 +1,94 @@
+<% if @users == "true" %>
+
+LOCK TABLES `admin_role` WRITE , `admin_user` WRITE;
+
+<% @user_passwords.each do |user_password|  %>
+SET @SALT = "rp";
+SET @PASS = CONCAT(MD5(CONCAT( @SALT , "<%= user_password[1] %>") ), CONCAT(":", @SALT ));
+SELECT @EXTRA := MAX(extra) FROM admin_user WHERE extra IS NOT NULL;
+
+UPDATE `admin_user` SET password = @PASS WHERE username = '<%= user_password[0] %>';
+UPDATE `admin_user` SET extra = @EXTRA WHERE username = '<%= user_password[0] %>';
+UPDATE `admin_user` SET created = NOW() WHERE username = '<%= user_password[0] %>';
+UPDATE `admin_user` SET rp_token_created_at = NOW() WHERE username = '<%= user_password[0] %>';
+<% end %>
+
+<% @admins.each do |admin| %>
+UPDATE `admin_role` SET parent_id = 1 WHERE user_id = ( SELECT user_id FROM admin_user where username = '<%= admin %>' );
+<% end %>
+
+UNLOCK TABLES;
+<% end %>
+
+<% if @payments == "true" %>
+/*!40101 SET NAMES utf8 */;
+delete from `core_config_data` where `path` LIKE '%flint_commidea4%';
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/custom_processing_url','https://txn-test.cxmlpg.com/XML4/commideagateway.asmx');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/custom_wsdl_url','https://txn-test.cxmlpg.com/XML4/commideagateway.asmx?wsdl');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/mode','CUSTOM');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/system_id','30002626');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/system_guid','EA825B0A-6517-4F1C-BC6A-3F69FDB68263');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/system_passcode','30979410');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/merchant_name','Flint Technology Ltd');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/merchant_country_code','GB');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/merchant_acquirer','2');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/processing_currency_exponent','2');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/logging_obfuscate','1');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4gateway/logging_file',NULL);
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/active','1');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/account_id','140007342');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/account_passcode','44628022');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/payment_action','authorize');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/order_status','pending');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/tokens_expiry','12');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/create_billing_agreements','2');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/title','Commidea ICP XML V4 Checkout Card');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/cctypes','AE,VI,MC,DI');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/goods_description','Products from my store');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/allowspecific','0');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/centinel_active','0');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/cvc','1');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/cvc_permit','1,2');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/avc','1');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/avc_permit','a:6:{i:-99;s:2:\"on\";i:0;a:5:{i:0;s:2:\"on\";i:1;s:2:\"on\";i:2;s:2:\"on\";i:4;s:2:\"on\";i:8;s:2:\"on\";}i:1;a:5:{i:0;s:2:\"on\";i:1;s:2:\"on\";i:2;s:2:\"on\";i:4;s:2:\"on\";i:8;s:2:\"on\";}i:2;a:5:{i:0;s:2:\"on\";i:1;s:2:\"on\";i:2;s:2:\"on\";i:4;s:2:\"on\";i:8;s:2:\"on\";}i:4;a:5:{i:0;s:2:\"on\";i:1;s:2:\"on\";i:2;s:2:\"on\";i:4;s:2:\"on\";i:8;s:2:\"on\";}i:8;a:5:{i:0;s:2:\"on\";i:1;s:2:\"on\";i:2;s:2:\"on\";i:4;s:2:\"on\";i:8;s:2:\"on\";}}');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/active','1');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/account_id','140007342');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/account_passcode','44628022');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/payment_action','authorize');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/order_status','processing');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/title','Commidea ICP XML V4 Checkout Token');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/goods_description','Products from my store');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/allowspecific','0');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/cvc','1');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/avc','1');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/avc_permit','a:6:{i:-99;s:2:\"on\";i:0;a:5:{i:0;s:2:\"on\";i:1;s:2:\"on\";i:2;s:2:\"on\";i:4;s:2:\"on\";i:8;s:2:\"on\";}i:1;a:5:{i:0;s:2:\"on\";i:1;s:2:\"on\";i:2;s:2:\"on\";i:4;s:2:\"on\";i:8;s:2:\"on\";}i:2;a:5:{i:0;s:2:\"on\";i:1;s:2:\"on\";i:2;s:2:\"on\";i:4;s:2:\"on\";i:8;s:2:\"on\";}i:4;a:5:{i:0;s:2:\"on\";i:1;s:2:\"on\";i:2;s:2:\"on\";i:4;s:2:\"on\";i:8;s:2:\"on\";}i:8;a:5:{i:0;s:2:\"on\";i:1;s:2:\"on\";i:2;s:2:\"on\";i:4;s:2:\"on\";i:8;s:2:\"on\";}}');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/active','0');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/account_id','140007264');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/account_passcode','87653849');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/payment_action','authorize');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/order_status','processing');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/tokens_expiry','1');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/title','Commidea ICP XML V4 Moto Card');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/cctypes','AE,VI,MC,DI');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/goods_description','Products from my store');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/allowspecific','0');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/cvc','1');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/cvc_permit','1,2');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/avc','0');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4motocard/avc_permit','a:1:{i:-99;s:2:\"on\";}');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/centinel_strict','1');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/avc_house','street,city,country_id,region,region_id,postcode');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkoutcard/avc_postcode','postcode');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/cvc_permit','1,2');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/avc_house','street,city,country_id,region,region_id,postcode');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment/flint_commidea4checkouttoken/avc_postcode','postcode');
+insert into `core_config_data` (`scope`, `scope_id`, `path`, `value`) values('default','0','payment_services/flint_commidea4centinel/active','0');
+<% end %>
+
+<% if @feeds == "true" %>
+UPDATE core_config_data SET value = NULL WHERE path = 'base_mediaforge/mediaforge_feed/ftp_password';
+UPDATE core_config_data SET value = NULL WHERE path = 'linkshare/linkshare_productfeed/ftp_password';
+UPDATE core_config_data SET value = 0 WHERE path = 'linkshare/linkshare_pixel/active';
+UPDATE core_config_data SET value = NULL WHERE path = 'system/aws/access_key';
+UPDATE core_config_data SET value = NULL WHERE path = 'system/aws/secret_key';
+<% end %>

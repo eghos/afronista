@@ -1,0 +1,87 @@
+#! /usr/bin/env python
+
+from subprocess import Popen
+import subprocess, sys, os
+import json, boto.ec2
+import multiprocessing
+
+def input():
+    try:
+        if sys.argv[1] == "switch":
+            switch = True
+        elif sys.argv[1] == "cook":
+            switch = False
+    except:
+        print ""
+        print 'argument should be cook or switch'
+        print ""
+        sys.exit(1)
+
+    return switch
+
+def get_params(switch):
+    project_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config = json.loads(open(project_directory + '/etc/multitool/parameters.json').read())
+    stack = config['environment']['name'] + '_' + config['project']['name'] + '_' + config['repository']['name']
+
+    global external_private_key
+    global internal_private_key
+    global bastion_host
+
+    external_private_key = '~/.ssh/' + config['key']['external'] + '.pem'
+    internal_private_key = '~/.ssh/' + config['key']['internal'] + '.pem'
+    bastion_host = config['bastion']['domain']['name']
+
+    targets = []
+
+    conn = boto.ec2.connect_to_region("eu-west-1")
+    instances = conn.get_only_instances()
+
+    for instance in instances:
+        tags = instance.tags
+        if 'Stack' in tags and tags['Stack'] == stack and instance.state == 'running':
+            if switch:
+                role = "switch"
+            else:
+                role = tags['Name'].split("_")[-1].lower()
+
+            target = { 'role': role, 'ip': instance.private_ip_address }
+            targets.append(target)
+
+    return targets
+
+def ssh_execute(params, q):
+    proxy_command = "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s ec2-user@%s -W %s:22" % (external_private_key, bastion_host, params['ip'])
+    ssh_command = "/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i " + internal_private_key + " -o ProxyCommand='" + proxy_command +"' ec2-user@" + params['ip'] + " -- sudo /usr/local/bin/cook " + params['role']
+
+    sp = subprocess.Popen(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = sp.communicate()
+    node = params['role'] + ": " + params['ip']
+
+    print stdout
+    print stderr
+
+    if sp.returncode != 0:
+        q.put(node)
+
+if __name__ == '__main__':
+    switch = input()
+    targets = get_params(switch)
+
+    m = multiprocessing.Manager()
+    q = m.Queue()
+    pool = multiprocessing.Pool(processes=4)
+
+    for target in targets:
+        worker = pool.apply_async(ssh_execute, (target, q))
+
+    pool.close()
+    pool.join()
+
+    status = ""
+    while q.empty() is False:
+        print(q.get())
+        status = "fail"
+
+    if status == "fail":
+        exit(1)

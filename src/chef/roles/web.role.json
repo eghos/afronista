@@ -1,0 +1,22 @@
+{
+    "role": {
+        "name": "web",
+        "multi": "true"
+    },
+    "run_list": [
+        "recipe[hostsfile::aws_hostsfile]",
+        "recipe[aws::lifecyclehooks]",
+        "recipe[php56]",
+        "recipe[php56::customize]",
+        "recipe[wordpress]",
+        "recipe[wordpress::setup]",
+        "recipe[wordpress::deploy]",
+        "recipe[sshusers::default]",
+        "recipe[sshusers::sudoers]",
+        "recipe[splunk]",
+        "recipe[splunk::install_forwarder]",
+        "recipe[newrelic]",
+        "recipe[newrelic::server_monitoring]",
+        "recipe[newrelic::php_agent]"
+    ]
+}

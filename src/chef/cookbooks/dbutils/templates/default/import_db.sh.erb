@@ -1,0 +1,85 @@
+#! /bin/bash
+
+set -eu
+
+ROOT_SCRIPT_DIR=$( dirname ${BASH_SOURCE[0]} )
+CONF_DIR=$( dirname ${ROOT_SCRIPT_DIR} )/etc/import
+LIBEXEC_DIR=$( dirname ${ROOT_SCRIPT_DIR} )/libexec
+CONF_FILE=${CONF_DIR}/${1}.conf
+POST_FILE=${CONF_DIR}/${1}.post
+
+if [ -e ${CONF_FILE} ]; then
+    . ${CONF_FILE}
+else
+    echo 'The configuration file does not exist, aborting'
+    echo 'Currently available projects:'
+    ls -1 ${CONF_DIR} | sed -e 's/^/\t- /g' -e 's/.conf//g'
+    exit 1
+fi
+
+DATE=$(date +"%Y-%m-%d-%T")
+AWS=$( which aws )
+
+BACKUP_DIR="/tmp/parallel-loader"
+mkdir -p ${BACKUP_DIR}
+
+DUMP_DIR=${BACKUP_DIR}/${SOURCE_DB_DOMAIN}
+rm -rf ${DUMP_DIR}
+mkdir -p ${DUMP_DIR}
+
+LOADER=${LIBEXEC_DIR}/myloader
+MYSQL=$( which mysql )
+
+S3_PATH="<%= @s3_path %>"
+S3_FULL_PATH="s3://${S3_PATH}/${BACKUP_TYPE}/${SOURCE_DB_DOMAIN}"
+
+echo -e $(date +"%Y-%m-%d-%T")
+echo -n 'Getting sanitized database dump for '${TARGET_DB_DOMAIN}' environment from S3: '
+${AWS} s3 sync --quiet ${S3_FULL_PATH} ${DUMP_DIR}/
+echo 'OK'
+
+echo -n 'Changing domain from '${SOURCE_DB_DOMAIN}' to '${TARGET_DB_DOMAIN}': '
+find ${DUMP_DIR} -type f -name '*core_config_data.sql' -exec sed -i -e "/kg-static/! s@://static[^/]*@://${TARGET_DB_DOMAIN}@g" -e "/content_blocks/ s/${SOURCE_DB_DOMAIN}/${TARGET_DB_DOMAIN}/g" -e '/cookie_domain/ s@NULL@"'${TARGET_DB_DOMAIN}'"@g' {} \;
+find ${DUMP_DIR} -type f \( -name '*.sql' -not -name '*-schema*.sql' \) -exec sed -i -e "s@://${SOURCE_DB_DOMAIN}@://${TARGET_DB_DOMAIN}@g" {} \;
+echo 'OK'
+
+echo -n 'Deleting database: '
+${MYSQL} -u ${TARGET_DB_USER} -h ${TARGET_DB_HOST} -p${TARGET_DB_PASSWORD} -e "DROP DATABASE IF EXISTS ${TARGET_DB_NAME};"
+echo 'OK'
+
+echo -n 'Importing database: '
+${LOADER} \
+    --user=${TARGET_DB_USER} \
+    --password=${TARGET_DB_PASSWORD} \
+    --host=${TARGET_DB_HOST} \
+    --threads=4 \
+    --overwrite-tables \
+    --database=${TARGET_DB_NAME} \
+    --directory=${DUMP_DIR}
+echo 'OK'
+
+if [ -e "${POST_FILE}" ]; then
+    echo -n 'executing post sql file: '
+    ${MYSQL} -u ${TARGET_DB_USER} -h ${TARGET_DB_HOST} -p${TARGET_DB_PASSWORD} ${TARGET_DB_NAME} < ${POST_FILE}
+    echo 'OK'
+fi
+if [ "${TEST_DB_IMPORT}" == "true" ]; then
+    echo -n 'Deleting _test database: '
+    ${MYSQL} -u ${TARGET_DB_USER} -h ${TARGET_DB_HOST} -p${TARGET_DB_PASSWORD} -e "DROP DATABASE IF EXISTS ${TARGET_DB_NAME}_test;"
+    echo 'OK'
+
+    echo -n 'Importing _test database: '
+    ${LOADER} \
+        --user=${TARGET_DB_USER} \
+        --password=${TARGET_DB_PASSWORD} \
+        --host=${TARGET_DB_HOST} \
+        --threads=4 \
+        --overwrite-tables \
+        --database=${TARGET_DB_NAME}_test \
+        --directory=${DUMP_DIR}
+    echo 'OK'
+fi
+echo -n 'Cleaning work directory: '
+rm -rf ${DUMP_DIR}
+echo 'OK'
+echo -e $(date +"%Y-%m-%d-%T")

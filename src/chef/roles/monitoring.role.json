@@ -1,0 +1,13 @@
+{
+    "role": {
+        "name": "web",
+        "multi": "true"
+    },
+    "run_list": [
+        "recipe[newrelic]",
+        "recipe[newrelic::server_monitoring]",
+        "recipe[newrelic::php_agent]",
+        "recipe[splunk]",
+        "recipe[splunk::install_forwarder]"
+    ]
+}

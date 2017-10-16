@@ -1,0 +1,17 @@
+{
+    "role": {
+        "name": "web",
+        "multi": "true"
+    },
+    "run_list": [
+        "recipe[hostsfile::aws_hostsfile]",
+        "recipe[aws::lifecyclehooks]",
+        "recipe[php56]",
+        "recipe[php56::customize]",
+        "recipe[wordress]",
+        "recipe[wordpress::setup]",
+        "recipe[wordpress::deploy]",
+        "recipe[sshusers::default]",
+        "recipe[sshusers::sudoers]"
+    ]
+}

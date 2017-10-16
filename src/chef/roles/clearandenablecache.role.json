@@ -1,0 +1,6 @@
+{
+    "run_list": [
+        "recipe[magento::clearcache]",
+        "recipe[magento::enablecache]" 
+    ]
+}

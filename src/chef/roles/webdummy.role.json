@@ -1,0 +1,17 @@
+{
+    "role": {
+        "name": "web",
+        "multi": "true"
+    },
+    "run_list": [
+        "recipe[hostsfile::aws_hostsfile]",
+        "recipe[php56]",
+        "recipe[php56::customize]",
+        "recipe[magento]",
+        "recipe[magento::setup]",
+        "recipe[magento::deploy]",
+        "recipe[magento::magerun]",
+        "recipe[sshusers::default]",
+        "recipe[sshusers::sudoers]"
+    ]
+}
